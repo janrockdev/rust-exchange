@@ -319,7 +319,10 @@ async fn load_order_book_from_csv(
     Ok(order_books)
 }
 
-async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<OrderRequest>) {
+async fn process_orders(
+    service: Arc<OrderBookService>,
+    mut rx: mpsc::Receiver<OrderRequest>
+) {
     while let Some(market_order) = rx.recv().await {
         let pair = market_order.pair.clone();
         let mut order_books = service.order_books.lock().await;
@@ -333,36 +336,16 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
             println!("Processing order for trader: {}", market_order.trader);
 
             // Ensure the orders are sorted correctly for matching
-            orders.sort_by(|a, b| {
-                match (a.side.as_str(), b.side.as_str()) {
-                    ("ask", "ask") => b.price.cmp(&a.price),
-                    ("bid", "bid") => b.price.cmp(&a.price),
-                    _ => std::cmp::Ordering::Equal,
-                }
-            });
-
-            println!("Orderbook status before processing trade: ----");
-            for order in orders.iter() {
-                println!("{}", order);
-            }
-            println!("----------------------------------------------\n");
-
-            // Ensure the orders are sorted correctly for matching
-            orders.sort_by(|a, b| {
-                match (a.side.as_str(), b.side.as_str()) {
-                    ("ask", "ask") => a.price.cmp(&b.price),
-                    ("bid", "bid") => b.price.cmp(&a.price),
-                    _ => std::cmp::Ordering::Equal,
-                }
+            orders.sort_by(|a, b| match (a.side.as_str(), b.side.as_str()) {
+                ("ask", "ask") => a.price.cmp(&b.price),
+                ("bid", "bid") => b.price.cmp(&a.price),
+                _ => std::cmp::Ordering::Equal,
             });
 
             for order in orders.iter_mut() {
                 if market_order.order_type == "market" {
-                    if
-                        (market_order.side == "buy" && order.side == "ask") || // Match buy order with ask order
-                        (market_order.side == "sell" && order.side == "bid")
-                    {
-                        // Match sell order with bid order
+                    if (market_order.side == "buy" && order.side == "ask") || // Match buy order with ask order
+                       (market_order.side == "sell" && order.side == "bid") { // Match sell order with bid order
                         let matched_volume = order.volume.min(remaining_volume);
                         println!(
                             "Matched order: price: {}, volume: {}, side: {}, timestamp: {}",
@@ -385,10 +368,7 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                             orders_to_remove.push(order.clone());
                             println!("Order fully matched and removed: {:?}", order);
                         } else {
-                            println!(
-                                "Order partially matched, remaining volume updated: {:?}",
-                                order
-                            );
+                            println!("Order partially matched, remaining volume updated: {:?}", order);
                         }
 
                         if remaining_volume <= OrderedFloat(0.0) {
@@ -397,14 +377,8 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                     }
                 } else if market_order.order_type == "limit" {
                     // Handle limit order logic
-                    if
-                        (market_order.side == "buy" &&
-                            order.side == "ask" &&
-                            market_order.price >= order.price.into_inner()) ||
-                        (market_order.side == "sell" &&
-                            order.side == "bid" &&
-                            market_order.price <= order.price.into_inner())
-                    {
+                    if (market_order.side == "buy" && order.side == "ask" && market_order.price >= order.price.into_inner()) ||
+                       (market_order.side == "sell" && order.side == "bid" && market_order.price <= order.price.into_inner()) {
                         let matched_volume = order.volume.min(remaining_volume);
                         println!(
                             "Matched order: price: {}, volume: {}, side: {}, timestamp: {}",
@@ -427,10 +401,7 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                             orders_to_remove.push(order.clone());
                             println!("Order fully matched and removed: {:?}", order);
                         } else {
-                            println!(
-                                "Order partially matched, remaining volume updated: {:?}",
-                                order
-                            );
+                            println!("Order partially matched, remaining volume updated: {:?}", order);
                         }
 
                         if remaining_volume <= OrderedFloat(0.0) {
@@ -465,32 +436,15 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                     println!("Limit order added to order book: {:?}", new_order);
 
                     // Re-sort the orders after inserting the new limit order
-                    orders.sort_by(|a, b| {
-                        match (a.side.as_str(), b.side.as_str()) {
-                            ("ask", "ask") => a.price.cmp(&b.price),
-                            ("bid", "bid") => b.price.cmp(&a.price),
-                            _ => std::cmp::Ordering::Equal,
-                        }
+                    orders.sort_by(|a, b| match (a.side.as_str(), b.side.as_str()) {
+                        ("ask", "ask") => a.price.cmp(&b.price),
+                        ("bid", "bid") => b.price.cmp(&a.price),
+                        _ => std::cmp::Ordering::Equal,
                     });
                 }
             }
 
-            orders.sort_by(|a, b| {
-                match a.side.as_str().cmp(&b.side.as_str()) {
-                    std::cmp::Ordering::Equal => match a.side.as_str() {
-                        "ask" => b.price.cmp(&a.price), // For asks, sort by ascending price
-                        "bid" => b.price.cmp(&a.price), // For bids, sort by descending price
-                        _ => std::cmp::Ordering::Equal,
-                    },
-                    other => other,
-                }
-            });
-
-            println!("\nOrderbook status after processing trade: -----");
-            for order in orders.iter() {
-                println!("{}", order);
-            }
-            println!("----------------------------------------------\n");
+            println!("Matched orders: {:?}", matched_orders);
 
             // Update the order book with the local copy
             order_books.insert(pair.clone(), orders);
