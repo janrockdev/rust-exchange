@@ -4,13 +4,13 @@ use std::fs::File;
 use std::fmt;
 use std::sync::Arc;
 use std::error::Error;
-use tokio::sync::{Mutex, mpsc};
-use tokio::time::{sleep, Duration};
-use tonic::{transport::Server, Request, Response, Status};
+use tokio::sync::{ Mutex, mpsc };
+use tokio::time::{ sleep, Duration };
+use tonic::{ transport::Server, Request, Response, Status };
 use futures::future::join_all;
-use csv::{ReaderBuilder, Writer};
+use csv::{ ReaderBuilder, Writer };
 use chrono::Utc;
-use serde::{Serialize, Serializer, ser::SerializeStruct, Deserialize, Deserializer};
+use serde::{ Serialize, Serializer, ser::SerializeStruct, Deserialize, Deserializer };
 use serde_json::Value;
 use ordered_float::OrderedFloat;
 use colored::*;
@@ -23,8 +23,8 @@ pub mod orderbook {
     tonic::include_proto!("orderbook");
 }
 
-use orderbook::order_book_server::{OrderBook, OrderBookServer};
-use orderbook::{OrderBookRequest, OrderBookResponse, OrderRequest, OrderResponse};
+use orderbook::order_book_server::{ OrderBook, OrderBookServer };
+use orderbook::{ OrderBookRequest, OrderBookResponse, OrderRequest, OrderResponse };
 
 #[derive(Debug)]
 pub struct OrderBookService {
@@ -43,10 +43,7 @@ pub struct Order {
 
 // Custom deserialization for Order
 impl<'de> Deserialize<'de> for Order {
-    fn deserialize<D>(deserializer: D) -> Result<Order, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+    fn deserialize<D>(deserializer: D) -> Result<Order, D::Error> where D: Deserializer<'de> {
         #[derive(Deserialize)]
         struct OrderData {
             price: f64,
@@ -72,7 +69,9 @@ impl fmt::Display for Order {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let output = format!(
             "Price: {:.1}, Volume: {:.3}, Side: {}",
-            self.price, self.volume, self.side
+            self.price,
+            self.volume,
+            self.side
         );
         if self.side == "ask" {
             write!(f, "{}", output.red())
@@ -84,10 +83,7 @@ impl fmt::Display for Order {
 
 // Custom serialization for Order (to avoid serialization of OrderedFloat for csv crate)
 impl Serialize for Order {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         let mut state = serializer.serialize_struct("Order", 5)?;
         state.serialize_field("price", &self.price.into_inner())?;
         state.serialize_field("volume", &self.volume.into_inner())?;
@@ -153,7 +149,11 @@ async fn persist_order_book(
         String::new()
     };
 
-    let file_path = format!("/home/toor/projects/rust-exchange/data/{}_order_book{}.csv", pair, timestamp);
+    let file_path = format!(
+        "/home/toor/projects/rust-exchange/data/{}_order_book{}.csv",
+        pair,
+        timestamp
+    );
     let mut wtr = Writer::from_writer(File::create(&file_path)?);
 
     if let Some(orders) = order_books.get(pair) {
@@ -187,7 +187,7 @@ async fn persist_order_book(
 
 async fn update_order_books(service: Arc<OrderBookService>, pairs: Vec<&str>, offline_mode: bool) {
     if offline_mode {
-        println!("Offline mode: Skipping API fetch.");
+        println!("Offline mode: Skipping API fetch.\n");
         return;
     }
 
@@ -279,7 +279,9 @@ async fn fetch_order_books(pairs: Vec<&str>) -> HashMap<String, Vec<Order>> {
 }
 
 // Function to load order book from CSV files
-async fn load_order_book_from_csv(file_paths: Vec<&str>) -> Result<HashMap<String, Vec<Order>>, Box<dyn Error>> {
+async fn load_order_book_from_csv(
+    file_paths: Vec<&str>
+) -> Result<HashMap<String, Vec<Order>>, Box<dyn Error>> {
     let mut order_books: HashMap<String, Vec<Order>> = HashMap::new();
 
     for file_path in file_paths {
@@ -287,7 +289,12 @@ async fn load_order_book_from_csv(file_paths: Vec<&str>) -> Result<HashMap<Strin
         for result in rdr.deserialize::<Order>() {
             match result {
                 Ok(order) => {
-                    let pair = file_path.split('_').next().unwrap_or("unknown").to_string().replace("data/offline/", "");
+                    let pair = file_path
+                        .split('_')
+                        .next()
+                        .unwrap_or("unknown")
+                        .to_string()
+                        .replace("data/offline/", "");
                     info!("Loaded order for {}: {}", pair, order);
                     order_books.entry(pair.clone()).or_insert_with(Vec::new).push(order);
                 }
@@ -300,46 +307,59 @@ async fn load_order_book_from_csv(file_paths: Vec<&str>) -> Result<HashMap<Strin
 
     // Sort the orders within each order book
     for orders in order_books.values_mut() {
-        orders.sort_by(|a, b| match (a.side.as_str(), b.side.as_str()) {
-            ("ask", "ask") => a.price.cmp(&b.price),
-            ("bid", "bid") => b.price.cmp(&a.price),
-            _ => std::cmp::Ordering::Equal,
+        orders.sort_by(|a, b| {
+            match (a.side.as_str(), b.side.as_str()) {
+                ("ask", "ask") => a.price.cmp(&b.price),
+                ("bid", "bid") => b.price.cmp(&a.price),
+                _ => std::cmp::Ordering::Equal,
+            }
         });
     }
 
     Ok(order_books)
 }
 
-async fn process_orders(
-    service: Arc<OrderBookService>,
-    mut rx: mpsc::Receiver<OrderRequest>
-) {
+async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<OrderRequest>) {
     while let Some(market_order) = rx.recv().await {
         let pair = market_order.pair.clone();
         let mut order_books = service.order_books.lock().await;
 
-        // Print the current state of the order book for debugging
-        println!("Order book for pair {}: {:?}", pair, order_books);
-
         if let Some(orders) = order_books.get_mut(&pair) {
-            // Print the current orders for debugging
-            println!("Current orders for pair {}: {:?}", pair, orders);
+            
+            // Ensure the orders are sorted correctly for matching
+            orders.sort_by(|a, b| {
+                match (a.side.as_str(), b.side.as_str()) {
+                    ("ask", "ask") => b.price.cmp(&a.price),
+                    ("bid", "bid") => b.price.cmp(&a.price),
+                    _ => std::cmp::Ordering::Equal,
+                }
+            });
+
+            println!("Orderbook status before processing trade: ----");
+            for order in orders.iter() {
+                println!("{}", order);
+            }
+            println!("----------------------------------------------\n");
 
             let mut matched_orders = vec![];
             let mut remaining_volume = OrderedFloat(market_order.volume);
             let mut orders_to_remove = vec![];
 
             // Ensure the orders are sorted correctly for matching
-            orders.sort_by(|a, b| match (a.side.as_str(), b.side.as_str()) {
-                ("ask", "ask") => a.price.cmp(&b.price),
-                ("bid", "bid") => b.price.cmp(&a.price),
-                _ => std::cmp::Ordering::Equal,
+            orders.sort_by(|a, b| {
+                match (a.side.as_str(), b.side.as_str()) {
+                    ("ask", "ask") => a.price.cmp(&b.price),
+                    ("bid", "bid") => b.price.cmp(&a.price),
+                    _ => std::cmp::Ordering::Equal,
+                }
             });
 
             for order in orders.iter_mut() {
                 if market_order.order_type == "market" {
-                    if (market_order.side == "buy" && order.side == "ask") ||
-                       (market_order.side == "sell" && order.side == "bid") {
+                    if
+                        (market_order.side == "buy" && order.side == "ask") ||
+                        (market_order.side == "sell" && order.side == "bid")
+                    {
                         let matched_volume = order.volume.min(remaining_volume);
                         matched_orders.push(Order {
                             price: order.price,
@@ -388,15 +408,32 @@ async fn process_orders(
                     println!("Limit order added to order book: {:?}", new_order);
 
                     // Re-sort the orders after inserting the new limit order
-                    orders.sort_by(|a, b| match (a.side.as_str(), b.side.as_str()) {
-                        ("ask", "ask") => a.price.cmp(&b.price),
-                        ("bid", "bid") => b.price.cmp(&a.price),
-                        _ => std::cmp::Ordering::Equal,
+                    orders.sort_by(|a, b| {
+                        match (a.side.as_str(), b.side.as_str()) {
+                            ("ask", "ask") => a.price.cmp(&b.price),
+                            ("bid", "bid") => b.price.cmp(&a.price),
+                            _ => std::cmp::Ordering::Equal,
+                        }
                     });
                 }
             }
 
-            println!("Matched orders: {:?}", matched_orders);
+            println!("Matched orders: {:?}\n", matched_orders);
+
+            // Ensure the orders are sorted correctly for matching
+            orders.sort_by(|a, b| {
+                match (a.side.as_str(), b.side.as_str()) {
+                    ("ask", "ask") => b.price.cmp(&a.price),
+                    ("bid", "bid") => b.price.cmp(&a.price),
+                    _ => std::cmp::Ordering::Equal,
+                }
+            });
+
+            println!("Orderbook status after processing trade: -----");
+            for order in orders.iter() {
+                println!("{}", order);
+            }
+            println!("----------------------------------------------\n");
 
             // Persist the order book after processing the trade
             if let Err(e) = persist_order_book(&order_books, &pair, true, true).await {
@@ -429,7 +466,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let csv_file_paths = vec![
             "data/offline/XXBTZUSD_order_book.csv",
             "data/offline/XETHZUSD_order_book.csv",
-            "data/offline/SUIUSD_order_book.csv",
+            "data/offline/SUIUSD_order_book.csv"
         ];
         let order_books = load_order_book_from_csv(csv_file_paths).await.unwrap_or_default();
         order_books
@@ -455,7 +492,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         process_orders(service_clone, order_rx).await;
     });
 
-    info!("Exchange is listening on {}", addr);
+    info!("Exchange is listening on {}\n", addr);
 
     // Start the server
     Server::builder().add_service(OrderBookServer::new(order_book_service)).serve(addr).await?;
