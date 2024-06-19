@@ -1,4 +1,4 @@
-# Rust Exchange Similator in Rust with gRPC
+# Rust Exchange Sandpit in Rust with gRPC
 
 ## Description
 This simple Rust Exchange provides an example of implementation of a cryptocurrency orderbook with live connectivity to real crypto exchange. It has also option to run in --offline mode and use predefined orderbook to support testing and e.g., UI build. It supports real-time order matching for market and limit orders. Designed for performance and scalability, this project leverages Rust's memory safety and concurrency features to ensure high reliability and low latency. Key features include:

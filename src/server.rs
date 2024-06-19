@@ -25,7 +25,14 @@ pub mod orderbook {
 }
 
 use orderbook::order_book_server::{ OrderBook, OrderBookServer };
-use orderbook::{ OrderBookRequest, OrderBookResponse, OrderRequest, OrderResponse, TradeBookRequest, TradeBookResponse };
+use orderbook::{
+    OrderBookRequest,
+    OrderBookResponse,
+    OrderRequest,
+    OrderResponse,
+    TradeBookRequest,
+    TradeBookResponse,
+};
 
 #[derive(Debug)]
 pub struct OrderBookService {
@@ -74,10 +81,7 @@ pub struct Trade {
 
 // Custom deserialization for Order
 impl<'de> Deserialize<'de> for Order {
-    fn deserialize<D>(deserializer: D) -> Result<Order, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
+    fn deserialize<D>(deserializer: D) -> Result<Order, D::Error> where D: Deserializer<'de> {
         #[derive(Deserialize)]
         struct OrderData {
             //id: String,
@@ -106,7 +110,10 @@ impl<'de> Deserialize<'de> for Order {
 // TODO: find a better way to handle serialization of OrderedFloat
 impl Serialize for Order {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let mut state = serializer.serialize_struct("Order", 5)?;
+        let mut state: <S as Serializer>::SerializeStruct = serializer.serialize_struct(
+            "Order",
+            5
+        )?;
         state.serialize_field("price", &self.price.into_inner())?;
         state.serialize_field("volume", &self.volume.into_inner())?;
         state.serialize_field("side", &self.side)?;
@@ -119,7 +126,7 @@ impl Serialize for Order {
 // Implement the Display trait for the Order struct (more readable output with colors)
 impl fmt::Display for Order {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let output = format!(
+        let output: String = format!(
             "Price: {:.5}, Volume: {:.3}, Side: {}, ID: {}, Timestamp: {}",
             self.price,
             self.volume,
@@ -142,14 +149,16 @@ impl OrderBook for Arc<OrderBookService> {
         &self,
         request: Request<OrderBookRequest>
     ) -> Result<Response<OrderBookResponse>, Status> {
-        let pair = request.into_inner().pair;
-        let order_books = self.order_books.lock().await;
+        let pair: String = request.into_inner().pair;
+        let order_books: tokio::sync::MutexGuard<
+            HashMap<String, Vec<Order>>
+        > = self.order_books.lock().await;
         if let Some(orders) = order_books.get(&pair) {
             Ok(
                 Response::new(OrderBookResponse {
                     orders: orders
                         .iter()
-                        .map(|o| orderbook::Order {
+                        .map(|o: &Order| orderbook::Order {
                             price: o.price.into_inner(),
                             volume: o.volume.into_inner(),
                         })
@@ -165,7 +174,7 @@ impl OrderBook for Arc<OrderBookService> {
         &self,
         request: Request<OrderRequest>
     ) -> Result<Response<OrderResponse>, Status> {
-        let market_order = request.into_inner();
+        let market_order: OrderRequest = request.into_inner();
         if let Err(_) = self.order_tx.send(market_order).await {
             return Err(Status::internal("Failed to process order"));
         }
@@ -181,8 +190,10 @@ impl OrderBook for Arc<OrderBookService> {
         &self,
         request: Request<TradeBookRequest>
     ) -> Result<Response<TradeBookResponse>, Status> {
-        let trader = request.into_inner().trader;
-        let trade_books = self.trade_books.lock().await;
+        let trader: String = request.into_inner().trader;
+        let trade_books: tokio::sync::MutexGuard<
+            HashMap<String, Vec<Trade>>
+        > = self.trade_books.lock().await;
         if let Some(trades) = trade_books.get(&trader) {
             Ok(
                 Response::new(TradeBookResponse {
@@ -215,24 +226,24 @@ async fn persist_order_book(
     include_timestamp: bool,
     sort_orders: bool
 ) -> Result<(), Box<dyn Error>> {
-    let timestamp = if include_timestamp {
+    let timestamp: String = if include_timestamp {
         format!("_{}", Utc::now().format("%Y%m%d%H%M%S%6f").to_string())
     } else {
         String::new()
     };
 
-    let file_path = format!(
+    let file_path: String = format!(
         "/home/toor/projects/rust-exchange/data/{}_order_book{}.csv",
         pair,
         timestamp
     );
-    let mut wtr = Writer::from_writer(File::create(&file_path)?);
+    let mut wtr: Writer<File> = Writer::from_writer(File::create(&file_path)?);
 
     if let Some(orders) = order_books.get(pair) {
-        let mut orders_to_write = orders.clone();
+        let mut orders_to_write: Vec<Order> = orders.clone();
 
         if sort_orders {
-            let mut asks = orders
+            let mut asks: Vec<Order> = orders
                 .iter()
                 .filter(|o| o.side == "ask")
                 .cloned()
@@ -266,7 +277,7 @@ async fn update_order_books(service: Arc<OrderBookService>, pairs: Vec<&str>, of
 
     loop {
         let fetches = pairs.iter().map(|pair| {
-            let pair = pair.to_string();
+            let pair: String = pair.to_string();
             async move {
                 let orders = fetch_order_book(&pair).await.unwrap_or_else(|_| vec![]);
                 (pair, orders)
@@ -275,19 +286,23 @@ async fn update_order_books(service: Arc<OrderBookService>, pairs: Vec<&str>, of
         let results: Vec<(String, Vec<Order>)> = join_all(fetches).await;
 
         // Update order_books outside the loop to minimize lock time
-        let mut new_order_books = HashMap::new();
+        let mut new_order_books: HashMap<String, Vec<Order>> = HashMap::new();
         for (pair, orders) in results {
             new_order_books.insert(pair, orders);
         }
 
         {
-            let mut order_books = service.order_books.lock().await;
+            let mut order_books: tokio::sync::MutexGuard<
+                HashMap<String, Vec<Order>>
+            > = service.order_books.lock().await;
             *order_books = new_order_books;
         }
 
         // Persist the order book after updating
         for pair in &pairs {
-            let new_order_books = service.order_books.lock().await;
+            let new_order_books: tokio::sync::MutexGuard<
+                HashMap<String, Vec<Order>>
+            > = service.order_books.lock().await;
             if let Err(e) = persist_order_book(&new_order_books, pair, false, false).await {
                 eprintln!("Failed to persist order book: {}", e);
             }
@@ -320,15 +335,15 @@ fn parse_orders(data: &Value, side: &str, timestamp: &str) -> Vec<Order> {
 
 // Fetch the order book for a given trading pair from Kraken API and return a vector of Order structs
 async fn fetch_order_book(pair: &str) -> Result<Vec<Order>, reqwest::Error> {
-    let url = format!("{}/?pair={}", "https://api.kraken.com/0/public/Depth", pair);
-    let response = reqwest::get(&url).await?.json::<Value>().await?;
-    let timestamp = Utc::now().to_rfc3339();
+    let url: String = format!("{}/?pair={}", "https://api.kraken.com/0/public/Depth", pair);
+    let response: Value = reqwest::get(&url).await?.json::<Value>().await?;
+    let timestamp: String = Utc::now().to_rfc3339();
 
-    let asks = parse_orders(&response["result"][pair]["asks"], "ask", &timestamp);
-    let bids = parse_orders(&response["result"][pair]["bids"], "bid", &timestamp);
+    let asks: Vec<Order> = parse_orders(&response["result"][pair]["asks"], "ask", &timestamp);
+    let bids: Vec<Order> = parse_orders(&response["result"][pair]["bids"], "bid", &timestamp);
 
     // Combine asks and bids into a single vector of orders sorted by price
-    let mut orders = Vec::new();
+    let mut orders: Vec<Order> = Vec::new();
     orders.extend(asks);
     orders.extend(bids);
 
@@ -341,7 +356,7 @@ async fn fetch_order_book(pair: &str) -> Result<Vec<Order>, reqwest::Error> {
 // Fetch initial order books for the given trading pairs in parallel
 async fn fetch_order_books(pairs: Vec<&str>) -> HashMap<String, Vec<Order>> {
     let fetches = pairs.iter().map(|pair| {
-        let pair = pair.to_string();
+        let pair: String = pair.to_string();
         async move {
             let orders = fetch_order_book(&pair).await.unwrap_or_else(|_| vec![]);
             (pair, orders)
@@ -359,11 +374,11 @@ async fn load_order_book_from_csv(
     let mut order_books: HashMap<String, Vec<Order>> = HashMap::new();
 
     for file_path in file_paths {
-        let mut rdr = ReaderBuilder::new().from_path(file_path)?;
+        let mut rdr: csv::Reader<File> = ReaderBuilder::new().from_path(file_path)?;
         for result in rdr.deserialize::<Order>() {
             match result {
                 Ok(order) => {
-                    let pair = file_path
+                    let pair: String = file_path
                         .split('_')
                         .next()
                         .unwrap_or("unknown")
@@ -396,15 +411,18 @@ async fn load_order_book_from_csv(
 // Function to process market orders and update the order book (core)
 async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<OrderRequest>) {
     while let Some(market_order) = rx.recv().await {
-        
         let pair = market_order.pair.clone();
 
-        let mut order_books = service.order_books.lock().await;
-        let mut trade_books = service.trade_books.lock().await;
+        let mut order_books: tokio::sync::MutexGuard<
+            HashMap<String, Vec<Order>>
+        > = service.order_books.lock().await;
+        let mut trade_books: tokio::sync::MutexGuard<
+            HashMap<String, Vec<Trade>>
+        > = service.trade_books.lock().await;
 
         // Record trader in tradebook before processing the trade
 
-        let trade = Trade {
+        let trade: Trade = Trade {
             id: Uuid::new_v4(),
             trader: market_order.trader.clone(),
             pair: market_order.pair,
@@ -416,13 +434,12 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
             status: "new".to_string(), // First status of the trade
         };
         trade_books.entry(market_order.trader.clone()).or_insert_with(Vec::new).push(trade.clone());
-        
 
         if let Some(orders) = order_books.get_mut(&pair) {
-            let mut orders = orders.clone(); // Work with a local copy of the orders
-            let mut matched_orders = vec![];
-            let mut remaining_volume = OrderedFloat(market_order.volume);
-            let mut orders_to_remove = vec![];
+            let mut orders: Vec<Order> = orders.clone(); // Work with a local copy of the orders
+            let mut matched_orders: Vec<Order> = vec![];
+            let mut remaining_volume: OrderedFloat<f64> = OrderedFloat(market_order.volume);
+            let mut orders_to_remove: Vec<Order> = vec![];
 
             println!("Processing order for trader: {}", market_order.trader);
 
@@ -450,10 +467,8 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                 }
             });
 
-            let mut order_log: Order = Order::default();
-
             for order in orders.iter_mut() {
-                order_log = order.clone();
+                let order_log: Order = order.clone();
                 if market_order.order_type == "market" {
                     if
                         (market_order.side == "buy" && order.side == "ask") || // Match buy order with ask order
@@ -481,12 +496,10 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                         order.volume -= matched_volume;
                         remaining_volume -= matched_volume;
 
-                        
-
                         if order.volume <= OrderedFloat(0.0) {
                             orders_to_remove.push(order.clone());
                             println!("Order fully matched and removed: {:?}", order);
-                            
+
                             //insert to tradebook
                             let trade = Trade {
                                 id: order.id,
@@ -499,11 +512,16 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                                 order_type: order.order_type.clone(),
                                 status: "filled".to_string(),
                             };
-                            trade_books.entry(market_order.trader.clone()).or_insert_with(Vec::new).push(trade.clone());
-                        
+                            trade_books
+                                .entry(market_order.trader.clone())
+                                .or_insert_with(Vec::new)
+                                .push(trade.clone());
                         } else {
-                            println!("Order partially matched, remaining volume updated: {:?}", order);
-                            
+                            println!(
+                                "Order partially matched, remaining volume updated: {:?}",
+                                order
+                            );
+
                             //insert to tradebook
                             let trade = Trade {
                                 id: order.id,
@@ -516,8 +534,10 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                                 order_type: order.order_type.clone(),
                                 status: "partially_filled".to_string(),
                             };
-                            trade_books.entry(market_order.trader.clone()).or_insert_with(Vec::new).push(trade.clone());
-
+                            trade_books
+                                .entry(market_order.trader.clone())
+                                .or_insert_with(Vec::new)
+                                .push(trade.clone());
                         }
 
                         if remaining_volume <= OrderedFloat(0.0) {
@@ -534,7 +554,7 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                             order.side == "bid" &&
                             market_order.price <= order.price.into_inner())
                     {
-                        let matched_volume = order.volume.min(remaining_volume);
+                        let matched_volume: OrderedFloat<f64> = order.volume.min(remaining_volume);
                         println!(
                             "Matched order: price: {}, volume: {}, side: {}, timestamp: {}",
                             order.price,
@@ -596,7 +616,6 @@ async fn process_orders(service: Arc<OrderBookService>, mut rx: mpsc::Receiver<O
                     println!("Limit order added to order book: {:?}", new_order);
 
                     // JRO: TODO: aggregate order book by side and price
-
                 }
             }
 
@@ -634,47 +653,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     // TODO: move to config file
-    let addr = "[::1]:50051".parse().unwrap();
+    let addr: std::net::SocketAddr = "[::1]:50051".parse().unwrap();
 
     // Create a channel for sending market orders
     let (order_tx, order_rx) = mpsc::channel(100);
 
     // Define the trading pairs (TODO: move to config file)
-    let pairs = vec!["XETHZUSD", "SUIUSD", "XXBTZUSD"];
+    let pairs: Vec<&str> = vec!["XETHZUSD", "SUIUSD", "XXBTZUSD"];
 
     // Determine if the application should run in offline mode
     let args: Vec<String> = env::args().collect();
-    let offline_mode = args.contains(&"--offline".to_string());
+    let offline_mode: bool = args.contains(&"--offline".to_string());
 
     // Fetch initial order books when the server starts in offline mode
-    let initial_order_books = if offline_mode {
+    let initial_order_books: HashMap<String, Vec<Order>> = if offline_mode {
         println!("Offline mode enabled: Loading order books from CSV files.");
         let csv_file_paths = vec![
             "data/offline/XXBTZUSD_order_book.csv",
             "data/offline/XETHZUSD_order_book.csv",
             "data/offline/SUIUSD_order_book.csv"
         ];
-        let order_books = load_order_book_from_csv(csv_file_paths).await.unwrap_or_default();
+        let order_books: HashMap<String, Vec<Order>> = load_order_book_from_csv(
+            csv_file_paths
+        ).await.unwrap_or_default();
         order_books
     } else {
         fetch_order_books(pairs.clone()).await
     };
 
     // Create the OrderBookService
-    let order_book_service = Arc::new(OrderBookService {
+    let order_book_service: Arc<OrderBookService> = Arc::new(OrderBookService {
         order_books: Arc::new(Mutex::new(initial_order_books)),
         order_tx,
         trade_books: Arc::new(Mutex::new(HashMap::new())), //TODO: load from CSV (recovery/optional)
     });
 
     // Clone the service for use in the spawned tasks
-    let service_clone = Arc::clone(&order_book_service);
+    let service_clone: Arc<OrderBookService> = Arc::clone(&order_book_service);
     tokio::spawn(async move {
         update_order_books(service_clone, pairs.clone(), offline_mode).await;
     });
 
     // Clone the service for use in the spawned tasks
-    let service_clone = Arc::clone(&order_book_service);
+    let service_clone: Arc<OrderBookService> = Arc::clone(&order_book_service);
     tokio::spawn(async move {
         process_orders(service_clone, order_rx).await;
     });
@@ -706,9 +727,7 @@ mod tests {
     #[tokio::test]
     #[serial]
     async fn test_get_order_book() {
-        let mut client = OrderBookClient::connect("http://[::1]:50051")
-            .await
-            .unwrap();
+        let mut client = OrderBookClient::connect("http://[::1]:50051").await.unwrap();
 
         // Test get_order_book
         let request = tonic::Request::new(OrderBookRequest {
@@ -726,7 +745,7 @@ mod tests {
         // Test place_market_buy_order
         let request = tonic::Request::new(OrderRequest {
             pair: "XXBTZUSD".to_string(),
-            volume: 0.960,
+            volume: 0.96,
             side: "buy".to_string(),
             price: 65290.0,
             order_type: "limit".to_string(),
