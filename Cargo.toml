@@ -1,5 +1,5 @@
 [package]
-name = "exchange-template"
+name = "rust-exchange"
 version = "0.1.0"
 edition = "2021"
 

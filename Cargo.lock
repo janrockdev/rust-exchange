@@ -427,30 +427,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "exchange-template"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "colored",
- "csv",
- "env_logger",
- "futures",
- "log",
- "mockito",
- "ordered-float",
- "prost",
- "reqwest",
- "serde",
- "serde_json",
- "serial_test",
- "structopt",
- "tokio",
- "tonic",
- "tonic-build",
- "uuid",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1589,6 +1565,30 @@ dependencies = [
  "spin",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rust-exchange"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "colored",
+ "csv",
+ "env_logger",
+ "futures",
+ "log",
+ "mockito",
+ "ordered-float",
+ "prost",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "structopt",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "uuid",
 ]
 
 [[package]]
