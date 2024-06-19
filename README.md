@@ -22,6 +22,13 @@ Current version:
         - tradebook preview (in progress)
         - support to tradebook per trader (in progress)
 
+## TODO (backlog)
+- [ ] review ordering for limit orders
+- [ ] aggregation of orders by price for preview (remove id, ts)
+- [ ] more tests
+- [ ] profiling
+- [ ] performance test
+
 ## Configuration
 
 Configuration in .env file (not required now)
@@ -52,10 +59,22 @@ cargo run --bin server
 ```shell
 # set the right level of logging
 export RUST_LOG=info
-cargo run --bin client market-order XXBTZUSD 1.4 buy market 0.0 Jan
-cargo run --bin client market-order XXBTZUSD 1.4 sell market 0.0 Jan
-cargo run --bin client market-order XXBTZUSD 1.4 buy limit 65248.0 Jan
-cargo run --bin client market-order XXBTZUSD 1.4 sell limit 65248.0 Jan
+cargo run --bin client market-order XXBTZUSD 1.4 buy market 0.0 Rock
+cargo run --bin client market-order XXBTZUSD 1.4 sell market 0.0 Rock
+cargo run --bin client market-order XXBTZUSD 1.4 buy limit 65248.0 Rock
+cargo run --bin client market-order XXBTZUSD 1.4 sell limit 65248.0 Rock
+```
+
+```shell
+# trader's trades
+cargo run --bin client retrieve-trades Rock
+# example
+Trades for trader Rock:
+ID: e006b2dd-1183-44f3-9231-62b6ea969c0f, Pair: XXBTZUSD, Side: buy, Price: 65290.09, Volume: 16, Timestamp: 2024-06-19T21:12:07.214014409+00:00, Id: e006b2dd-1183-44f3-9231-62b6ea969c0f, Status: new
+ID: bc59817c-acb3-4b6d-a91c-5dae967bbcc7, Pair: XXBTZUSD, Side: ask, Price: 65290.1, Volume: 15.633, Timestamp: 2024-06-19T21:12:07.214395802+00:00, Id: bc59817c-acb3-4b6d-a91c-5dae967bbcc7, Status: filled
+ID: c8e3d3da-5d4c-479b-84bb-b1ad5dd66c47, Pair: XXBTZUSD, Side: ask, Price: 65290.6, Volume: 0.004, Timestamp: 2024-06-19T21:12:07.214430880+00:00, Id: c8e3d3da-5d4c-479b-84bb-b1ad5dd66c47, Status: filled
+ID: 4b80e237-5db6-4e96-b677-98b32574716b, Pair: XXBTZUSD, Side: ask, Price: 65294.5, Volume: 1.1369999999999991, Timestamp: 2024-06-19T21:12:07.214461156+00:00, Id: 4b80e237-5db6-4e96-b677-98b32574716b, Status: partially_filled
+
 ```
 
 ## Architeture decisions
@@ -77,8 +96,103 @@ cargo run --bin client market-order XXBTZUSD 1.4 sell limit 65248.0 Jan
 - Pending Replace: A modification request has been submitted for the order (e.g., change in quantity or price), but it has not yet been confirmed or processed.
 
 ### Trade Status Flow
-New -> Pending -> Open
+New -> Pending -> Open 
 Open -> Partially Filled -> Filled
 Open -> Canceled
 Pending -> Rejected
 Open -> Expired
+
+### Generic Archicture
+
+```mermaid
+flowchart LR
+    Trader --> Broker
+    Broker --> Order_Transmission
+    Order_Transmission --> Exchange
+    Exchange <--> Account_Management
+    Exchange <--> Tradebook
+    Exchange <--> Orderbook
+    Exchange <--> Marching_Engine
+    Exchange <--> Clearing
+    Clearing <--> Settlement
+```
+
+### Code Base:
+#### Client:
+```mermaid
+sequenceDiagram
+    participant Trader
+    participant CLI
+    participant OrderBookClient
+    participant OrderBookService
+
+    Trader->>CLI: Execute Trading-CLI command
+    CLI->>CLI: Parse command-line arguments
+
+    alt MarketOrder
+        CLI->>OrderBookClient: connect("http://[::1]:50051")
+        OrderBookClient->>CLI: Connected to Server
+        CLI->>OrderBookClient: place_market_order(OrderRequest)
+        OrderBookClient->>OrderBookService: Forward OrderRequest
+        OrderBookService->>OrderBookClient: OrderResponse
+        OrderBookClient->>CLI: Order Response
+
+    else RetrieveTrades
+        CLI->>OrderBookClient: connect("http://[::1]:50051")
+        OrderBookClient->>CLI: Connected to Server
+        CLI->>OrderBookClient: get_trade_book(TradeBookRequest)
+        OrderBookClient->>OrderBookService: Forward TradeBookRequest
+        OrderBookService->>OrderBookClient: TradeBookResponse
+        OrderBookClient->>CLI: Trade Book Response
+        CLI->>Trader: Display trades for trader
+    end
+
+```
+
+#### Server:
+```mermaid
+sequenceDiagram
+    participant Trader
+    participant CLI
+    participant OrderBookService
+    participant OrderBookClient
+    participant OrderBookServer
+    participant OrderBookAPI
+    participant TradeBook
+    
+    Trader->>CLI: Execute command
+    CLI->>OrderBookClient: Send OrderRequest
+    OrderBookClient->>OrderBookService: Forward OrderRequest
+    OrderBookService->>OrderBook: Place order in OrderBook
+    OrderBookService->>TradeBook: Record trade with status "new"
+    
+    alt MarketOrder
+        OrderBookService->>OrderBook: Match and execute orders
+        OrderBook->>TradeBook: Update trade status to "filled" or "partially_filled"
+    end
+
+    alt Retrieve OrderBook
+        CLI->>OrderBookClient: Send OrderBookRequest
+        OrderBookClient->>OrderBookService: Forward OrderBookRequest
+        OrderBookService->>OrderBook: Fetch orders
+        OrderBook->>OrderBookService: Return OrderBookResponse
+        OrderBookService->>OrderBookClient: Return OrderBookResponse
+        OrderBookClient->>CLI: Display OrderBookResponse
+    end
+
+    alt Retrieve TradeBook
+        CLI->>OrderBookClient: Send TradeBookRequest
+        OrderBookClient->>OrderBookService: Forward TradeBookRequest
+        OrderBookService->>TradeBook: Fetch trades
+        TradeBook->>OrderBookService: Return TradeBookResponse
+        OrderBookService->>OrderBookClient: Return TradeBookResponse
+        OrderBookClient->>CLI: Display TradeBookResponse
+    end
+
+    loop Update OrderBooks
+        OrderBookService->>OrderBookAPI: Fetch order books
+        OrderBookAPI->>OrderBookService: Return updated order books
+        OrderBookService->>OrderBook: Update order books
+    end
+
+```
