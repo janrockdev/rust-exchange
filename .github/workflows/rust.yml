@@ -19,7 +19,7 @@ jobs:
       run: sudo apt-get install -y protobuf-compiler
     - uses: actions/checkout@v4
     - name: Start Server
-      run: cargo run --bin server -- --offline
+      run: nohup cargo run --bin server -- --offline & sleep 10
     - name: Build
       run: cargo build --verbose
     - name: Run tests
