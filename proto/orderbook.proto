@@ -5,6 +5,7 @@ package orderbook;
 service OrderBook {
   rpc GetOrderBook (OrderBookRequest) returns (OrderBookResponse);
   rpc PlaceMarketOrder (OrderRequest) returns (OrderResponse);
+  rpc GetTradeBook(TradeBookRequest) returns (TradeBookResponse);
 }
 
 message OrderBookRequest {
@@ -32,4 +33,24 @@ message OrderRequest {
 message OrderResponse {
   string status = 1;
   string message = 2;
+}
+
+message TradeBookRequest {
+    string trader = 1;
+}
+
+message TradeBookResponse {
+    repeated Trade trades = 1;
+}
+
+message Trade {
+    string id = 1;
+    string trader = 2;
+    string pair = 3;
+    string side = 4;
+    double price = 5;
+    string order_type = 6;
+    double volume = 7;
+    string timestamp = 8;
+    string status = 9;
 }

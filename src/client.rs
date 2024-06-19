@@ -1,5 +1,5 @@
 use orderbook::order_book_client::OrderBookClient;
-use orderbook::OrderRequest;
+use orderbook::{OrderRequest, TradeBookRequest};
 use structopt::StructOpt;
 
 pub mod orderbook {
@@ -7,7 +7,7 @@ pub mod orderbook {
 }
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "TradingCLI", about = "A CLI to submit market and limit trades.")]
+#[structopt(name = "Trading-CLI", about = "A CLI to submit market and limit trades or retrieve trades from the trade book.")]
 struct Cli {
     #[structopt(subcommand)]
     command: Command,
@@ -15,19 +15,45 @@ struct Cli {
 
 #[derive(StructOpt, Debug)]
 enum Command {
+    /// Submit a market or limit order (example: client market-order XXBTZUSD 0.01 sell limit 65290.1 Rock)
+    #[structopt(name = "market-order")]
     MarketOrder {
+        /// Trading pair (e.g., XXBTZUSD, XETHZUSD, SUIUSD)
+        #[structopt(help = "Trading pair (e.g., XXBTZUSD, XETHZUSD, SUIUSD)")]
         pair: String,
+        
+        /// Volume of the asset to trade (e.g., 0.01, 0.1, 1.0)
+        #[structopt(help = "Volume of the asset to trade")]
         volume: f64,
+        
+        /// Side of the order (buy or sell)
+        #[structopt(help = "Side of the order (buy or sell)")]
         side: String,
+        
+        /// Type of the order (market or limit)
+        #[structopt(help = "Type of the order (market or limit)")]
         order_type: String,
+        
+        /// Price for the limit order
+        #[structopt(help = "Price for the limit order")]
         price: f64,
+        
+        /// Trader's identifier
+        #[structopt(help = "Trader's identifier")]
+        trader: String,
+    },
+    
+    /// Retrieve trades for a specific trader (example: client retrieve-trades Rock)
+    #[structopt(name = "retrieve-trades")]
+    RetrieveTrades {
+        /// Trader's identifier
+        #[structopt(help = "Trader's identifier")]
         trader: String,
     },
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let mut client = OrderBookClient::connect("http://[::1]:50051").await?;
     println!("Connected to Server.");
 
@@ -45,6 +71,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
             let response = client.place_market_order(market_order_request).await?;
             println!("Order Response: {:?}", response.into_inner());
+        },
+        Command::RetrieveTrades { trader } => {
+            let trade_book_request = tonic::Request::new(TradeBookRequest {
+                trader: trader.clone(),
+            });
+            let response = client.get_trade_book(trade_book_request).await?;
+            let trade_book_response = response.into_inner();
+            println!("Trades for trader {}:", trader.clone());
+            for trade in trade_book_response.trades {
+                println!(
+                    "ID: {}, Pair: {}, Side: {}, Price: {}, Volume: {}, Timestamp: {}, Id: {}, Status: {}",
+                    trade.id, trade.pair, trade.side, trade.price, trade.volume, trade.timestamp, trade.id, trade.status
+                );
+            }
         },
     }
 

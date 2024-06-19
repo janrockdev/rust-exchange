@@ -16,11 +16,15 @@ chrono = "0.4"
 ordered-float = "4.2.0"
 structopt = "0.3.26"
 colored = "2.1.0"
+uuid = { version = "1.8.0", features = ["v4"] }
 
 mockito = "1.4.0"
 
 log = "0.4.21"
 env_logger = "0.11.3"
+
+[dev-dependencies]
+serial_test = "3.1.1"
 
 [build-dependencies]
 tonic-build = "0.11.0"
@@ -32,3 +36,6 @@ path = "src/server.rs"
 [[bin]]
 name = "client"
 path = "src/client.rs"
+
+[profile.test]
+test-threads = 2
