@@ -55,7 +55,7 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = OrderBookClient::connect("http://[::1]:50051").await?;
-    println!("Connected to Server.");
+    println!("Connected to Server...");
 
     let args = Cli::from_args();
 
@@ -81,8 +81,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Trades for trader {}:", trader.clone());
             for trade in trade_book_response.trades {
                 println!(
-                    "ID: {}, Pair: {}, Side: {}, Price: {}, Volume: {}, Timestamp: {}, Id: {}, Status: {}",
-                    trade.id, trade.pair, trade.side, trade.price, trade.volume, trade.timestamp, trade.id, trade.status
+                    "{}: ID: {}, Pair: {}, Side: {}, Price: {:.5}, Volume: {:.3}, Timestamp: {}",
+                    trade.status, trade.id, trade.pair, trade.side, trade.price, trade.volume, trade.timestamp
                 );
             }
         },

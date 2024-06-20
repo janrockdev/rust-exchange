@@ -28,8 +28,9 @@ Current version:
 - [ ] review ordering for limit orders
 - [ ] aggregation of orders by price for preview (remove id, ts)
 - [ ] more tests
-- [ ] profiling
-- [ ] performance test
+- [ ] profiling >> perf + flamegraph / tokio-console/TSan
+- [ ] performance test >> criterion/wrk(http)
+- [ ] add all to Github Actions (CI/CD)
 
 ## Configuration
 
