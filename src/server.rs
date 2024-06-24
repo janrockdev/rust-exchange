@@ -52,19 +52,6 @@ pub struct Order {
     order_type: String,
 }
 
-// impl Default for Order {
-//     fn default() -> Self {
-//         Order {
-//             id: Uuid::nil(), // Default UUID (nil UUID)
-//             price: OrderedFloat(0.0), // Default price
-//             volume: OrderedFloat(0.0), // Default volume
-//             side: String::from("unknown"), // Default side
-//             timestamp: String::from("1970-01-01T00:00:00Z"), // Default timestamp
-//             order_type: String::from("unknown"), // Default order type
-//         }
-//     }
-// }
-
 //For Tradebook
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Trade {
@@ -126,12 +113,13 @@ impl Serialize for Order {
 // Implement the Display trait for the Order struct (more readable output with colors)
 impl fmt::Display for Order {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let truncated_id = &self.id.to_string()[..8];
         let output: String = format!(
-            "Price: {:.5}, Volume: {:.3}, Side: {}, ID: {}, Timestamp: {}",
+            "{:.5} {:.3} {} {} {}",
             self.price,
             self.volume,
             self.side,
-            self.id,
+            truncated_id,
             self.timestamp
         );
         if self.side == "ask" {

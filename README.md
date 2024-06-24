@@ -55,7 +55,10 @@ cargo build --release
 ```shell
 # set the right level of logging
 export RUST_LOG=info
+# live orderbook
 cargo run --bin server
+# offline orderbook - loaded from data/offline - ideal for testing
+cargo run --bin server -- --offline
 ```
 
 ### Client (development)
