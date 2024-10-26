@@ -34,7 +34,13 @@ Current version:
 
 ## Configuration
 
-Configuration in .env file (not required now)
+Configuration in config.yaml file (root folder / example):
+```
+kraken:
+  symbols: ["XETHZUSD", "SUIUSD", "XXBTZUSD"] # pair to collect
+  persist: "data" # path to persist orderbook + trade snapshots for testing purpose
+  offline: ["data/offline/XXBTZUSD_order_book.csv", "data/offline/XETHZUSD_order_book.csv", "data/offline/SUIUSD_order_book.csv"] # path for offline testing orderbooks
+```
 
 ## Tests
 ```shell
