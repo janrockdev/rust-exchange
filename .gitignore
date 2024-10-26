@@ -1,0 +1,4 @@
+/target
+/data/*.csv
+
+config.yaml

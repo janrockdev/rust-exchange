@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package orderbook;
+
+service OrderBook {
+  rpc GetOrderBook (OrderBookRequest) returns (OrderBookResponse);
+  rpc PlaceMarketOrder (OrderRequest) returns (OrderResponse);
+  rpc GetTradeBook(TradeBookRequest) returns (TradeBookResponse);
+}
+
+message OrderBookRequest {
+  string pair = 1;
+}
+
+message OrderBookResponse {
+  repeated Order orders = 1;
+}
+
+message Order {
+  double price = 1;
+  double volume = 2;
+}
+
+message OrderRequest {
+  string pair = 1;
+  double volume = 2;
+  string side = 3;
+  string trader = 4;
+  double price = 5;
+  string order_type = 6;
+}
+
+message OrderResponse {
+  string status = 1;
+  string message = 2;
+}
+
+message TradeBookRequest {
+    string trader = 1;
+}
+
+message TradeBookResponse {
+    repeated Trade trades = 1;
+}
+
+message Trade {
+    string id = 1;
+    string trader = 2;
+    string pair = 3;
+    string side = 4;
+    double price = 5;
+    string order_type = 6;
+    double volume = 7;
+    string timestamp = 8;
+    string status = 9;
+}
