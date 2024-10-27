@@ -44,11 +44,7 @@ kraken:
 
 ## Tests
 ```shell
-export RUST_LOG=info
-cargo run --bin server
-# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-# integration test expects running instance on :50051 !!!
-# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+export RUST_LOG=debug
 cargo test -- --nocapture
 ```
 
