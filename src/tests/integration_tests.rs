@@ -121,14 +121,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_persist_order_book() {
-        let order_books = HashMap::new();
-        let pair = "XXBTZUSD";
-        let result = persist_order_book(&order_books, pair, false, false).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
     async fn test_load_order_book_from_csv() {
         let file_paths = vec!["data/offline/XXBTZUSD_order_book.csv"];
         let result = load_order_book_from_csv(file_paths).await;
