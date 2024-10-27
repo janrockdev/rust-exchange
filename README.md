@@ -30,7 +30,7 @@ Current version:
 - [ ] more tests
 - [ ] profiling >> perf + flamegraph / tokio-console/TSan
 - [ ] performance test >> criterion/wrk(http)
-- [ ] add all to Github Actions (CI/CD)
+- [x] add all to Github Actions (CI/CD)
 
 ## Configuration
 

@@ -56,19 +56,6 @@ pub struct Order {
     order_type: String,
 }
 
-// impl Default for Order {
-//     fn default() -> Self {
-//         Order {
-//             id: Uuid::nil(), // Default UUID (nil UUID)
-//             price: OrderedFloat(0.0), // Default price
-//             volume: OrderedFloat(0.0), // Default volume
-//             side: String::from("unknown"), // Default side
-//             timestamp: String::from("1970-01-01T00:00:00Z"), // Default timestamp
-//             order_type: String::from("unknown"), // Default order type
-//         }
-//     }
-// }
-
 //For Tradebook
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Trade {
