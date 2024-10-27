@@ -24,7 +24,7 @@ mod tests {
             trade_books,
         });
 
-        let pair = "BTCUSD".to_string();
+        let pair = "XXBTZUSD".to_string();
         let order = Order {
             id: Uuid::new_v4(),
             price: OrderedFloat(50000.0),
@@ -57,7 +57,7 @@ mod tests {
 
         let market_order = OrderRequest {
             trader: "trader1".to_string(),
-            pair: "BTCUSD".to_string(),
+            pair: "XXBTZUSD".to_string(),
             price: 50000.0,
             volume: 1.0,
             side: "buy".to_string(),
@@ -94,7 +94,7 @@ mod tests {
         let trade = Trade {
             id: Uuid::new_v4(),
             trader: trader.clone(),
-            pair: "BTCUSD".to_string(),
+            pair: "XXBTZUSD".to_string(),
             price: OrderedFloat(50000.0),
             volume: OrderedFloat(1.0),
             side: "buy".to_string(),
@@ -123,7 +123,7 @@ mod tests {
     #[tokio::test]
     async fn test_persist_order_book() {
         let order_books = HashMap::new();
-        let pair = "BTCUSD";
+        let pair = "XXBTZUSD";
         let result = persist_order_book(&order_books, pair, false, false).await;
         assert!(result.is_ok());
     }
@@ -139,10 +139,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_order_books() {
-        let pairs = vec!["BTCUSD", "ETHUSD"];
+        let pairs = vec!["XXBTZUSD", "XETHZUSD"];
         let result = fetch_order_books(pairs).await;
         assert!(!result.is_empty());
-        assert!(result.contains_key("BTCUSD"));
-        assert!(result.contains_key("ETHUSD"));
+        assert!(result.contains_key("XXBTZUSD"));
+        assert!(result.contains_key("XETHZUSD"));
     }
 }
