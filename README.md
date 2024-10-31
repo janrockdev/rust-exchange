@@ -24,6 +24,10 @@ Current version:
         - tradebook preview (in progress)
         - support to tradebook per trader (in progress)
 
+## Extended version (private) with real-time dashboard
+
+
+
 ## TODO (backlog)
 - [ ] review ordering for limit orders
 - [ ] aggregation of orders by price for preview (remove id, ts)
