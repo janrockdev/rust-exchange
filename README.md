@@ -24,9 +24,9 @@ Current version:
         - tradebook preview (in progress)
         - support to tradebook per trader (in progress)
 
-## Extended version (private) with real-time dashboard
+## Extended version (private repo) with real-time dashboard
 
-
+![dashboard](https://github.com/janrockdev/rust-exchange/blob/main/dashboard.png)
 
 ## TODO (backlog)
 - [ ] review ordering for limit orders
