@@ -3,21 +3,26 @@ pub mod models {
     use ordered_float::OrderedFloat;
     use serde::{ Serialize, Serializer, ser::SerializeStruct, Deserialize, Deserializer };
     use uuid::Uuid;
-
     use colored::*;
-    extern crate env_logger;
-    extern crate log;
 
     pub mod orderbook {
         tonic::include_proto!("orderbook");
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Config {
         pub kraken: KrakenConfig,
+        pub server: ServerConfig,
     }
 
-    #[derive(Debug, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ServerConfig {
+        pub address: String,
+        pub channel_buffer_size: usize,
+        pub update_interval_seconds: u64,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct KrakenConfig {
         pub symbols: Vec<String>,
         pub persist: String,
@@ -25,11 +30,11 @@ pub mod models {
     }
 
     // For Orderbook
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct Order {
         pub id: Uuid,
         pub price: OrderedFloat<f64>,
-        pub volume: OrderedFloat<f64>,
+        pub volume: f64,
         pub side: String,
         pub timestamp: String,
         pub order_type: String,
@@ -56,7 +61,7 @@ pub mod models {
             Ok(Order {
                 id: Uuid::new_v4(),
                 price: OrderedFloat(helper.price),
-                volume: OrderedFloat(helper.volume),
+                volume: helper.volume,
                 side: helper.side,
                 timestamp: helper.timestamp,
                 order_type: helper.order_type,
@@ -74,7 +79,7 @@ pub mod models {
             let mut state: <S as Serializer>::SerializeStruct =
                 serializer.serialize_struct("Order", 5)?;
             state.serialize_field("price", &self.price.into_inner())?;
-            state.serialize_field("volume", &self.volume.into_inner())?;
+            state.serialize_field("volume", &self.volume)?;
             state.serialize_field("side", &self.side)?;
             state.serialize_field("timestamp", &self.timestamp)?;
             state.serialize_field("order_type", &self.order_type)?;
@@ -103,13 +108,13 @@ pub mod models {
     }
 
     //For Tradebook
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct Trade {
         pub id: Uuid,
         pub trader: String,
         pub pair: String,
         pub price: OrderedFloat<f64>,
-        pub volume: OrderedFloat<f64>,
+        pub volume: f64,
         pub side: String,
         pub timestamp: String,
         pub order_type: String,

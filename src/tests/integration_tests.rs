@@ -2,7 +2,7 @@
 mod tests {
     use crate::*;
     use crate::fetch_order_book;
-    use crate::orderbook::{ OrderBookRequest, OrderRequest };
+    use rust_exchange::models::model::models::orderbook::{ OrderBookRequest, OrderRequest };
 
     //Test the fetch_order_book function by fetching the order book for a trading pair
     #[tokio::test]
@@ -28,13 +28,15 @@ mod tests {
         let order = Order {
             id: Uuid::new_v4(),
             price: OrderedFloat(50000.0),
-            volume: OrderedFloat(1.0),
+            volume: 1.0,
             side: "ask".to_string(),
             timestamp: Utc::now().to_rfc3339(),
             order_type: "limit".to_string(),
         };
 
-        order_books.lock().await.insert(pair.clone(), vec![order.clone()]);
+        let mut order_map: BTreeMap<OrderedFloat<f64>, VecDeque<Order>> = BTreeMap::new();
+        order_map.entry(order.price).or_insert_with(VecDeque::new).push_back(order.clone());
+        order_books.lock().await.insert(pair.clone(), order_map);
 
         let request = Request::new(OrderBookRequest { pair: pair.clone() });
         let response = service.get_order_book(request).await.unwrap().into_inner();
@@ -68,7 +70,7 @@ mod tests {
         let response = service.place_market_order(request).await.unwrap().into_inner();
 
         assert_eq!(response.status, "new");
-        assert_eq!(response.message, "order registerted and is being processed");
+        assert_eq!(response.message, "order registered and is being processed");
 
         let received_order = order_rx.recv().await.unwrap();
         assert_eq!(received_order.trader, market_order.trader);
@@ -96,7 +98,7 @@ mod tests {
             trader: trader.clone(),
             pair: "XXBTZUSD".to_string(),
             price: OrderedFloat(50000.0),
-            volume: OrderedFloat(1.0),
+            volume: 1.0,
             side: "buy".to_string(),
             timestamp: Utc::now().to_rfc3339(),
             order_type: "market".to_string(),
@@ -113,7 +115,7 @@ mod tests {
         assert_eq!(response.trades[0].trader, trade.trader);
         assert_eq!(response.trades[0].pair, trade.pair);
         assert_eq!(response.trades[0].price, trade.price.into_inner());
-        assert_eq!(response.trades[0].volume, trade.volume.into_inner());
+        assert_eq!(response.trades[0].volume, trade.volume);
         assert_eq!(response.trades[0].side, trade.side);
         assert_eq!(response.trades[0].timestamp, trade.timestamp);
         assert_eq!(response.trades[0].order_type, trade.order_type);
