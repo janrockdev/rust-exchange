@@ -3,21 +3,24 @@
 [![Rust](https://github.com/janrockdev/rust-exchange/actions/workflows/rust.yml/badge.svg)](https://github.com/janrockdev/rust-exchange/actions/workflows/rust.yml)
 
 ## Description
+
 This simple Rust Exchange provides an example of implementation of a cryptocurrency orderbook with live connectivity to real crypto exchange. It has also option to run in --offline mode and use predefined orderbook to support testing and e.g., UI build. It supports real-time order matching for market and limit orders. Designed for performance and scalability, this project leverages Rust's memory safety and concurrency features to ensure high reliability and low latency. Key features include:
 
 Final version will:
+
 - Order Matching Engine: Handles various order types (limit, market) with high precision and speed from gRPC client CLI.
 - Real-time Updates: Ensures immediate reflection of order book changes and market data.
 - Concurrency: Utilizes Rust's async capabilities to process multiple transactions simultaneously.
 - Ideal for developers looking to build high-performance trading systems and applications in the cryptocurrency space.
 
 Current version:
+
 - gRPC-based server
-    - with periodic orderbook update from Kraken exchange using public API
-    - orderbook data stored in in-memory cache with persistency to a disk
-    - trade matching engine with logic to process market and limit order only (stop/cancel in progress)
-- gRPC-based client
-    - with sections for:
+        - with periodic orderbook update from Kraken exchange using public API
+        - orderbook data stored in in-memory cache with persistency to a disk
+        - trade matching engine with logic to process market and limit order only (stop/cancel in progress)
+        - gRPC-based client
+- with sections for:
         - price updates
         - orderbook preview
         - trade execution
@@ -29,6 +32,7 @@ Current version:
 ![dashboard](https://github.com/janrockdev/rust-exchange/blob/main/dashboard.png)
 
 ## TODO (backlog)
+
 - [ ] review ordering for limit orders
 - [ ] aggregation of orders by price for preview (remove id, ts)
 - [ ] more tests
@@ -39,7 +43,8 @@ Current version:
 ## Configuration
 
 Configuration in config.yaml file (root folder / example):
-```
+
+```yaml
 kraken:
   symbols: ["XETHZUSD", "SUIUSD", "XXBTZUSD"] # pair to collect
   persist: "data" # path to persist orderbook + trade snapshots for testing purpose
@@ -47,12 +52,14 @@ kraken:
 ```
 
 ## Tests
+
 ```shell
 export RUST_LOG=debug
 cargo test -- --nocapture
 ```
 
 ### Demo
+
 ```shell
 # 1) run sever in offline mode
 export RUST_LOG=debug
@@ -107,6 +114,7 @@ Price: 65238.60000, Volume: 0.008, Side: bid, ID: 01c979ef-2a50-4ddd-b612-db7c75
 ```
 
 ## Build
+
 ```shell
 cargo build --release
 ```
@@ -116,13 +124,15 @@ cargo build --release
 ### Server (development)
 
 Run server in offline mode with orderbooks from snapshots for development:
+
 ```shell
 # server
 export RUST_LOG=debug
 cargo run --bin server -- --offline
 ```
 
-### Server (development)
+### Server - development
+
 ```shell
 # set the right level of logging
 export RUST_LOG=info
@@ -130,6 +140,7 @@ cargo run --bin server
 ```
 
 ### Client (development)
+
 ```shell
 # set the right level of logging
 export RUST_LOG=info
@@ -152,12 +163,14 @@ ID: 4b80e237-5db6-4e96-b677-98b32574716b, Pair: XXBTZUSD, Side: ask, Price: 6529
 ```
 
 ## Architeture decisions
+
 - HashMap performance is O(1), while BTreeMap performance is O(log N), however we have just 2 keys and doing a lot insert/delete/lookup where HashMap should be better.
 - Ordered_float crate in Rust that provides a way to handle f64 and f32 floating-point numbers with total ordering. The standard f64 and f32 types in Rust do not implement the Ord trait because floating-point numbers do not have a total order due to the presence of special values like NaN (Not a Number). OrderedFloat solves this problem by providing a total order for floating-point numbers.
 
 ## Notes
 
 ### Trade status
+
 - New: The order has been received by the exchange but has not yet been processed or entered into the order book.
 - Pending: The order is under review or awaiting certain conditions before it can be entered into the order book.
 - Open: The order is active and has been entered into the order book. It is waiting to be matched with a counter order.
@@ -170,7 +183,8 @@ ID: 4b80e237-5db6-4e96-b677-98b32574716b, Pair: XXBTZUSD, Side: ask, Price: 6529
 - Pending Replace: A modification request has been submitted for the order (e.g., change in quantity or price), but it has not yet been confirmed or processed.
 
 ### Trade Status Flow
-New -> Pending -> Open 
+
+New -> Pending -> Open
 Open -> Partially Filled -> Filled
 Open -> Canceled
 Pending -> Rejected
@@ -191,8 +205,10 @@ flowchart LR
     Clearing <--> Settlement
 ```
 
-### Code Base:
-#### Client:
+### Code Base
+
+#### Client
+
 ```mermaid
 sequenceDiagram
     participant Trader
@@ -223,7 +239,8 @@ sequenceDiagram
 
 ```
 
-#### Server:
+#### Server
+
 ```mermaid
 sequenceDiagram
     participant Trader
